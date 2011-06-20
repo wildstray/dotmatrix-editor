@@ -4,11 +4,6 @@ use Glib qw/TRUE FALSE/;
 use Gtk2 '-init';
 use Data::Dumper;
 
-# Pango is not portable (eg. doesn't compile under Windows)
-#use Pango;
-#my $font = Pango::FontDescription->from_string('Monospace 8');
-my $font;
-
 my $w = 8;		# default width
 my $h = 8;		# default height
 my $max_w = 16;		# max width
@@ -22,6 +17,7 @@ my $byte_size = 8;	# bytes of 8 bits... you wan't change this!
 my $def_type = "uint%d_t PROGMEM";		# default C array type
 my $def_name = "myarray";			# default C array name
 my @c_files = ("*.c", "*.h", "*.cpp", "*.pde"); # C file extensions
+my $font = Gtk2::Pango::FontDescription->from_string('Monospace 8');
 
 # global variables
 
@@ -43,9 +39,11 @@ my $a_type;
 # Function definitions
 
 sub bin { return unpack("N", pack("B32", substr("0" x 32 . shift, -32))); }
-sub dec2hex { $hex = unpack("H8", pack("N", shift)); $zeros = "0" x (8 - int(shift)); $hex =~ s/$zeros//; return $hex; }
-sub dec2bin { $bin = unpack("B32", pack("N", shift)); $zeros = "0" x (32 - int(shift)); $bin =~ s/$zeros//; return $bin; }
+sub dec2hex { my $hex = unpack("H8", pack("N", shift)); my $zeros = "0" x (8 - int(shift)); $hex =~ s/$zeros//; return $hex; }
+sub dec2bin { my $bin = unpack("B32", pack("N", shift)); my $zeros = "0" x (32 - int(shift)); $bin =~ s/$zeros//; return $bin; }
 sub log2 { return int(log(int(shift))/log(2)); }
+sub min { my ($a, $b) = @_; return ($a < $b) ? $a : $b; }
+sub max { my ($a, $b) = @_; return ($a > $b) ? $a : $b; }
 
 sub delete_event
 {
@@ -347,7 +345,7 @@ sub draw_editor {
     my ($cols, $rows) = @_;
 
     my $frame = Gtk2::Frame->new('Editor');
-    $frame->set_border_width(3);
+    $frame->set_border_width(4);
     my $table = Gtk2::Table->new($rows+1, $cols+1, FALSE);
     $table->set_border_width(8);
 
@@ -375,6 +373,7 @@ sub draw_editor {
         $label->modify_font($font);
 	$table->attach_defaults($label, $cols, $cols+1, $y+1, $y+2);
     }
+
     $frame->add($table);
     return $frame;
 }
@@ -397,12 +396,12 @@ sub draw_result
 {
     my ($cols, $rows) = @_;
     my $frame = Gtk2::Frame->new('Resulting array');
-    $frame->set_border_width(3);
+    $frame->set_border_width(4);
     my $len = ($dir) ? $cols : $rows;
     my $bytes = bytes($cols, $rows);
     my $table = Gtk2::Table->new($len+1, 1, FALSE);
     $table->set_border_width(8);
-    $label = Gtk2::Label->new();
+    my $label = Gtk2::Label->new();
     $label->modify_font($font);
     $table->attach_defaults($label, 0, 1, 0, 1);
     for (my $i = 0; $i < $len; $i++) {
@@ -431,7 +430,7 @@ sub redraw_result
 sub draw_settings
 {
     my $frame = Gtk2::Frame->new('Settings');
-    $frame->set_border_width(3);
+    $frame->set_border_width(4);
 
     my $adjx = Gtk2::Adjustment->new ($w, $min_w, $max_w, 1, 1, 0);
     my $adjy = Gtk2::Adjustment->new ($h, $min_h, $max_h, 1, 1, 0);
@@ -470,6 +469,7 @@ sub draw_settings
     $vboxd->add($combod);
 
     my $vboxs = Gtk2::VBox->new(FALSE,5);
+    $vboxs->set_border_width(4);
     $vboxs->pack_start($vboxx,FALSE,FALSE,4);
     $vboxs->pack_start($vboxy,FALSE,FALSE,4);
     $vboxs->pack_start($vboxd,FALSE,FALSE,4);
@@ -509,7 +509,7 @@ sub draw_text
     $text .= "},\n};";
 
     my $frame = Gtk2::Frame->new('Resulting C array');
-    $frame->set_border_width(3);
+    $frame->set_border_width(4);
 
     my $buffer = Gtk2::TextBuffer->new();
     my $iter = $buffer->get_start_iter;
@@ -517,6 +517,7 @@ sub draw_text
 
     my $tview = Gtk2::TextView->new_with_buffer($buffer);
     $tview->set_editable(FALSE);
+    $tview->set_border_width(4);
 
     $frame->add($tview);
     return $frame;
@@ -542,10 +543,11 @@ sub draw_loadfile
     $filechooser->set_filter($filter);
 
     my $frame = Gtk2::Frame->new('Load from file');
-    $frame->set_border_width(3);
+    $frame->set_border_width(4);
     my $combof1 = Gtk2::ComboBox->new_text;
     my $combof2 = Gtk2::ComboBox->new_text;
     my $hboxf = Gtk2::HBox->new(FALSE,5);
+    $hboxf->set_border_width(4);
     $filechooser->signal_connect('selection-changed'=>\&copen,[$combof1,$combof2]);
     $combof1->signal_connect('changed'=>\&cload1,[$combof1,$combof2]);
     $combof2->signal_connect('changed'=>\&cload2,[$combof1,$combof2]);
@@ -572,7 +574,7 @@ sub redraw_loadfile
 $window = Gtk2::Window->new('toplevel');
 $window->set_title("Font and bitmap editor");
 $window->signal_connect(delete_event => \&delete_event);
-$window->set_border_width(10);
+$window->set_border_width(8);
 $window->set_resizable(FALSE);
 
 # Show layout of main window, init editor and Gtk main
