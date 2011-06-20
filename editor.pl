@@ -19,6 +19,8 @@ my $win_w = 200;	# window base width (except editor and result)
 my $win_h = 100;	# window base height (except editor and result)
 my $dir = 0; 		# scanline direction: defaults horizontal
 my $byte_size = 8;	# bytes of 8 bits... you wan't change this!
+my $def_type = "uint%d_t PROGMEM";		# default C array type
+my $def_name = "myarray";			# default C array name
 my @c_files = ("*.c", "*.h", "*.cpp", "*.pde"); # C file extensions
 
 # global variables
@@ -27,12 +29,16 @@ my @bitmatrix = ();
 my @matrix = ();
 my @arrays = ();
 
+my $loadfile;
 my $settings;
 my $editor;
 my $result;
+my $text;
 my $hbox;
 my $vbox;
 my $window;
+my $a_name;
+my $a_type;
 
 # Function definitions
 
@@ -75,6 +81,7 @@ sub callback {
     #print Dumper (@bitmatrix);
     #print Dumper (@matrix);
     redraw_result();
+    redraw_text();
     return;
 }
 
@@ -87,6 +94,7 @@ sub switch {
     load_matrix();
     redraw_editor();
     redraw_result();
+    redraw_text();
     return;
 }
 
@@ -96,10 +104,14 @@ sub clear
 {
     my ($widget, $data) = @_;
     
+    undef $a_type;
+    undef $a_name;
     init_bitmatrix($w, $h);
     init_matrix($w, $h);
+    redraw_loadfile();
     redraw_editor();
     redraw_result();
+    redraw_text();
     return;
 }
 
@@ -150,8 +162,9 @@ sub cparse
     while($buffer =~ m!(?:\n*(?<key>.*?)\s*=\s*)(?<value>{(?:[^{}]++|(?2))*};*)!gms) {
 	my $key = $+{key}, $value = $+{value};
 	$value =~ s/[\n|\s]//g; 	# remove spaces and line feeds
-	$key =~ m!^.*\s(?<key>.+)(:?\[(?<size>\d+)\]\[(?<len>\d+)\])$!;
+	$key =~ m!^(?<type>.+)\s(?<key>.+)(:?\[(?<size>\d+)\]\[(?<len>\d+)\])$!;
 	$key = $+{key};
+	my $type = $+{type};
 	my $size = $+{size};
 	my $len = $+{len};
 	my @data = ();
@@ -170,7 +183,7 @@ sub cparse
 	    }
 	    push @data, [@values];
 	}
-	push @arrays, {key => $key, size => $size, len => $len, data => \@data};
+	push @arrays, {key => $key, type => $type, size => $size, len => $len, data => \@data};
     }
     #print Dumper (@arrays);
 }
@@ -208,6 +221,8 @@ sub cload2
     
     my @data = $arrays[$key]->{data};
     my $len = $arrays[$key]->{len};
+    $a_type = $arrays[$key]->{type};
+    $a_name = $arrays[$key]->{key};
     
     @matrix = ();
     @matrix = @{$data[0][$index]};
@@ -233,6 +248,7 @@ sub cload2
     redraw_settings(); 
     redraw_editor(); 
     redraw_result();
+    redraw_text();
 }
 
 # Resize editor (zeroize matrix)
@@ -245,6 +261,7 @@ sub resize
     init_matrix($w, $h);
     redraw_editor(); 
     redraw_result();
+    redraw_text();
 }
 
 # Define and zeroize bitmatrix (editor buttons status)
@@ -413,7 +430,6 @@ sub redraw_result
 
 sub draw_settings
 {
-
     my $frame = Gtk2::Frame->new('Settings');
     $frame->set_border_width(3);
 
@@ -438,7 +454,7 @@ sub draw_settings
     $vboxy->add($laby);
     $vboxy->add($spiny);
 
-    my $buttonc = Gtk2::Button->new('Clear editor');
+    my $buttonc = Gtk2::Button->new('Reset editor');
     $buttonc->signal_connect('clicked'=>\&clear);
 
     my $labd = Gtk2::Label->new('Byte/word direction:');
@@ -473,6 +489,84 @@ sub redraw_settings
     $window->show_all;
 }
 
+# Draw text frame
+
+sub draw_text
+{
+    my ($cols, $rows) = @_;
+
+    my $len = ($dir) ? $cols : $rows;
+    my $bytes = bytes($cols, $rows);
+
+    $a_name = $def_name if !$a_name;
+    $a_type = sprintf($def_type, $bytes * $byte_size) if !$a_type;
+    my $text = "$a_type $a_name [1][$len] {\n\t{ ";
+    for (my $i = 0; $i < $len; $i++) {
+        my $hex = "0x" . dec2hex($matrix[$i], $bytes * 2);
+        $text .= "\n\t  " if !($i % 8) && $i;
+        $text .= "$hex, ";
+    }
+    $text .= "},\n};";
+
+    my $frame = Gtk2::Frame->new('Resulting C array');
+    $frame->set_border_width(3);
+
+    my $buffer = Gtk2::TextBuffer->new();
+    my $iter = $buffer->get_start_iter;
+    $buffer->insert_with_tags_by_name ($iter, $text);
+
+    my $tview = Gtk2::TextView->new_with_buffer($buffer);
+    $tview->set_editable(FALSE);
+
+    $frame->add($tview);
+    return $frame;
+}
+
+# Redraw text frame
+
+sub redraw_text
+{
+    $text->destroy;
+    $text = draw_text($w, $h);
+    $vbox->pack_end($text,FALSE,FALSE,0);
+    $window->show_all;
+}
+
+# Draw load from file frame
+
+sub draw_loadfile 
+{
+    my $filechooser = Gtk2::FileChooserButton->new ('Select a file' , 'open');
+    my $filter = Gtk2::FileFilter->new();
+    foreach (@c_files) { $filter->add_pattern($_); }
+    $filechooser->set_filter($filter);
+
+    my $frame = Gtk2::Frame->new('Load from file');
+    $frame->set_border_width(3);
+    my $combof1 = Gtk2::ComboBox->new_text;
+    my $combof2 = Gtk2::ComboBox->new_text;
+    my $hboxf = Gtk2::HBox->new(FALSE,5);
+    $filechooser->signal_connect('selection-changed'=>\&copen,[$combof1,$combof2]);
+    $combof1->signal_connect('changed'=>\&cload1,[$combof1,$combof2]);
+    $combof2->signal_connect('changed'=>\&cload2,[$combof1,$combof2]);
+    $hboxf->add($filechooser);
+    $hboxf->add($combof1);
+    $hboxf->add($combof2);
+    $frame->add($hboxf);
+    return $frame;
+}
+
+# Redraw load from file frame
+
+sub redraw_loadfile
+{
+    $loadfile->destroy;
+    $loadfile = draw_loadfile();
+    $vbox->pack_start($loadfile,FALSE,FALSE,0);
+    $vbox->reorder_child($loadfile,0);
+    $window->show_all;
+}
+
 # Main window definition
 
 $window = Gtk2::Window->new('toplevel');
@@ -481,55 +575,26 @@ $window->signal_connect(delete_event => \&delete_event);
 $window->set_border_width(10);
 $window->set_resizable(FALSE);
 
-# Load from file frame
-
-my $filechooser = Gtk2::FileChooserButton->new ('Select a file' , 'open');
-my $filter = Gtk2::FileFilter->new();
-foreach (@c_files) { $filter->add_pattern($_); }
-$filechooser->set_filter($filter);
-
-my $framef = Gtk2::Frame->new('Load from file');
-$framef->set_border_width(3);
-my $combof1 = Gtk2::ComboBox->new_text;
-my $combof2 = Gtk2::ComboBox->new_text;
-my $hboxf = Gtk2::HBox->new(FALSE,5);
-$filechooser->signal_connect('selection-changed'=>\&copen,[$combof1,$combof2]);
-$combof1->signal_connect('changed'=>\&cload1,[$combof1,$combof2]);
-$combof2->signal_connect('changed'=>\&cload2,[$combof1,$combof2]);
-$hboxf->add($filechooser);
-$hboxf->add($combof1);
-$hboxf->add($combof2);
-$framef->add($hboxf);
-
 # Show layout of main window, init editor and Gtk main
 
 init_bitmatrix($w, $h);
 init_matrix($w, $h);
 
+$loadfile = draw_loadfile();
 $settings = draw_settings($w, $h);
 $editor = draw_editor($w, $h);
 $result = draw_result($w, $h);
+$text = draw_text($w, $h);
 
 $hbox = Gtk2::HBox->new(FALSE,5);
 $hbox->add($settings);
 $hbox->add($editor);
 $hbox->add($result);
 
-sub create_buffer {
-    my $buffer = Gtk2::TextBuffer->new();
-    my $iter = $buffer->get_start_iter;
-    $buffer->insert_with_tags_by_name ($iter, "ciao\nciao\ntest\ntext\n");
-    return $buffer;
-}
-
-my $buffer = &create_buffer;
-my $tview = Gtk2::TextView->new_with_buffer($buffer);
-$tview->set_editable(FALSE);
-#$hbox->add($tview);
-
 $vbox = Gtk2::VBox->new(FALSE,5);
-$vbox->add($framef);
-$vbox->add($hbox);
+$vbox->pack_start($loadfile,FALSE,FALSE,0);
+$vbox->pack_start($hbox,FALSE,FALSE,0);
+$vbox->pack_end($text,FALSE,FALSE,0);
 
 $window->add($vbox);
 $window->show_all;
