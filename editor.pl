@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 #use strict
 use warnings;
 use Glib qw/TRUE FALSE/;
@@ -133,7 +134,8 @@ sub copen
     }
     
     $combof1->clear();
-    $combof1->set_model( $model );
+    $combof1->set_model($model);
+    #$combof1->set_wrap_width(16);
 
     my $renderer1 = Gtk2::CellRendererText->new;
     $combof1->pack_start ($renderer1, FALSE);
@@ -226,7 +228,8 @@ sub cload1
     $combof2->clear();
 
     my $model = preview($key);
-    $combof2->set_model( $model );
+    $combof2->set_model($model);
+    #$combof2->set_wrap_width(16);
 
     my $renderer1 = Gtk2::CellRendererText->new;
     $combof2->pack_start ($renderer1, FALSE);
