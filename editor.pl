@@ -5,6 +5,8 @@ use Glib qw/TRUE FALSE/;
 use Gtk2 '-init';
 use Data::Dumper;
 
+# global variables
+
 my $w = 8;		# default width
 my $h = 8;		# default height
 my $max_w = 16;		# max width
@@ -19,8 +21,6 @@ my $def_type = "uint%d_t PROGMEM";		# default C array type
 my $def_name = "myarray";			# default C array name
 my @c_files = ("*.c", "*.h", "*.cpp", "*.pde"); # C file extensions
 my $font = Gtk2::Pango::FontDescription->from_string('Monospace 8');
-
-# global variables
 
 my @bitmatrix = ();
 my @matrix = ();
@@ -126,14 +126,15 @@ sub copen
     @arrays = ();
     cparse($filename);
     
-
+    $combof1->clear();
+    $combof2->clear();
+    
     my $model = Gtk2::ListStore->new ('Glib::String');
     foreach(@arrays)
     { 
 	$model->set($model->append, 0, $_->{key});
     }
     
-    $combof1->clear();
     $combof1->set_model($model);
     #$combof1->set_wrap_width(16);
 
@@ -152,7 +153,9 @@ sub cparse
 {
     my ($filename) = @_;
 
-    open my $fh, '<', $filename or return;
+    return if !$filename;
+
+    open my $fh, '<', $filename;
     local $/ = undef;
     my $buffer = <$fh>;
     close $fh;
@@ -201,6 +204,8 @@ sub cload1
 {
     my ($widget, $data) = @_;
     my ($combof1, $combof2) = @$data;
+
+    return if !@arrays;
 
     my $key = $combof1->get_active();
 
@@ -630,7 +635,7 @@ sub redraw_loadfile
 # Main window definition
 
 $window = Gtk2::Window->new('toplevel');
-$window->set_title("Font and bitmap editor");
+$window->set_title("Dotmatrix fonts and bitmaps editor");
 $window->signal_connect(delete_event => \&delete_event);
 $window->set_border_width(8);
 $window->set_resizable(FALSE);
