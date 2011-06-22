@@ -125,15 +125,21 @@ sub copen
     @arrays = ();
     cparse($filename);
     
-    foreach(@arrays)
-    { 
-	$combof1->remove_text(0);
-    }
 
+    my $model = Gtk2::ListStore->new ('Glib::String');
     foreach(@arrays)
     { 
-	$combof1->append_text($_->{key});
+	$model->set($model->append, 0, $_->{key});
     }
+    
+    $combof1->clear();
+    $combof1->set_model( $model );
+
+    my $renderer1 = Gtk2::CellRendererText->new;
+    $combof1->pack_start ($renderer1, FALSE);
+    $combof1->add_attribute ($renderer1, text => 0);
+
+    $combof1->set_active(0);
     
     return;
 }
@@ -144,7 +150,7 @@ sub cparse
 {
     my ($filename) = @_;
 
-    open my $fh, '<', $filename;
+    open my $fh, '<', $filename or return;
     local $/ = undef;
     my $buffer = <$fh>;
     close $fh;
@@ -186,7 +192,7 @@ sub cparse
     #print Dumper (@arrays);
 }
 
-# choose C array name
+# choose C array, detect size and create fonts/bitmaps preview
 
 sub cload1
 {
@@ -194,16 +200,41 @@ sub cload1
     my ($combof1, $combof2) = @$data;
 
     my $key = $combof1->get_active();
-    my $size = $arrays[$key]->{size};
 
-    for (my $i = 0; $i < 256; $i++)
-    {
-	$combof2->remove_text(0);
+    my @data = $arrays[$key]->{data};
+    my $size = $arrays[$key]->{size};
+    my $len = $arrays[$key]->{len};
+    $a_type = $arrays[$key]->{type};
+    $a_name = $arrays[$key]->{key};
+
+    # width and height detection logic 
+
+    my $max = (reverse sort { $a <=> $b } map @$_, @{$data[0]})[0];
+    my $bytes = ($max) ? (1 + int(log2($max) / $byte_size)) : 1;
+    
+    #$dir = ($len < $byte_size) ? 1 : 0;
+    $dir = ($len <= $byte_size) ? 1 : 0;
+    if ($dir) {
+	$w = $len;
+	$h = $bytes * $byte_size;
+    } else {
+	$w = $bytes * $byte_size;
+	$h = $len;
     }
-    for (my $i = 0; $i < $size; $i++)
-    {
-	$combof2->append_text($i);
-    }
+    #print "w: $w h: $h dir $dir\n";
+
+    $combof2->clear();
+
+    my $model = preview($key);
+    $combof2->set_model( $model );
+
+    my $renderer1 = Gtk2::CellRendererText->new;
+    $combof2->pack_start ($renderer1, FALSE);
+    $combof2->add_attribute ($renderer1, text => 0);
+    my $renderer2 = Gtk2::CellRendererPixbuf->new;
+    $combof2->pack_start ($renderer2, TRUE);
+    $combof2->add_attribute ($renderer2, pixbuf => 1);
+
     $combof2->set_active(0);
 }
 
@@ -216,31 +247,13 @@ sub cload2
 
     my $key = $combof1->get_active();
     my $index = $combof2->get_active();
-    
+
     my @data = $arrays[$key]->{data};
-    my $len = $arrays[$key]->{len};
-    $a_type = $arrays[$key]->{type};
-    $a_name = $arrays[$key]->{key};
-    
+
     @matrix = ();
     @matrix = @{$data[0][$index]};
     #print Dumper(@matrix);
 
-    # width and height detection logic 
-
-    my $max = (reverse sort { $a <=> $b } @matrix)[0];
-    my $bytes = ($max) ? (1 + int(log2($max) / $byte_size)) : 1;
-    
-    $dir = ($len < $byte_size) ? 1 : 0;
-    if ($dir) {
-	$w = $len;
-	$h = $bytes * $byte_size;
-    } else {
-	$w = $bytes * $byte_size;
-	$h = $len;
-    }
-    #print "w: $w h: $h dir $dir\n";
-    
     init_bitmatrix($w, $h);
     load_bitmatrix();
     redraw_settings(); 
@@ -249,7 +262,47 @@ sub cload2
     redraw_text();
 }
 
-# Resize editor (zeroize matrix)
+# Generate preview of bitmaps/fonts for combobox
+
+sub preview {
+    my ($key) = @_;
+
+    my $model = Gtk2::ListStore->new ('Glib::String', 'Gtk2::Gdk::Pixbuf');
+    my $size = $arrays[$key]->{size};
+    for (my $i = 0; $i < $size; $i++)
+    {
+	my @data = $arrays[$key]->{data};
+	my @tmpmatrix = ();
+	@tmpmatrix = @{$data[0][$i]};
+	#print Dumper(@tmpmatrix);
+	my @xpm = ();
+	push @xpm, "$w $h 2 1";
+	push @xpm, "0 c None";
+	push @xpm, "1 c Black";
+	my $bytes = bytes($w, $h);
+	if ($dir) {
+	    for (my $x = 0; $x < $h; $x++) {
+		my $tmp;
+		for (my $y = 0; $y < $w; $y++)
+		{
+		    $tmp .= substr (dec2bin($tmpmatrix[$y], $bytes * $byte_size), $x, 1);
+		}
+		push @xpm, $tmp;
+	    }
+	} else {
+	    for (my $y = 0; $y < $h; $y++)
+	    {
+		push @xpm, dec2bin($tmpmatrix[$y], $bytes * $byte_size);
+	    }
+	}
+	#print Dumper(@xpm);
+        my $pixbuf = Gtk2::Gdk::Pixbuf->new_from_xpm_data(@xpm);
+	$model->set($model->append, 0, $i, 1, $pixbuf);
+    }
+    return $model;
+}
+
+# Resize editor (zeroize matrix, loaded file arrays)
 
 sub resize
 {
@@ -257,6 +310,7 @@ sub resize
 
     init_bitmatrix($w, $h);
     init_matrix($w, $h);
+    redraw_loadfile(); 
     redraw_editor(); 
     redraw_result();
     redraw_text();
@@ -461,7 +515,7 @@ sub draw_settings
     my $combod = Gtk2::ComboBox->new_text;
     $combod->append_text('horizontal');
     $combod->append_text('vertical');
-    $combod->set_active(0);
+    $combod->set_active($dir);
     $combod->signal_connect('changed'=>\&switch);
 
     my $vboxd = Gtk2::VBox->new(FALSE,5);
