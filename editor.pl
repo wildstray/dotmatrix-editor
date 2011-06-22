@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-#use strict
+use strict;
 use warnings;
 use Glib qw/TRUE FALSE/;
 use Gtk2 '-init';
@@ -166,7 +166,8 @@ sub cparse
     # parse array definitions... far from beeing perfect and error proof...
 
     while($buffer =~ m!(?:\n*(?<key>.*?)\s*=\s*)(?<value>{(?:[^{}]++|(?2))*};*)!gms) {
-	my $key = $+{key}, $value = $+{value};
+	my $key = $+{key};
+	my $value = $+{value};
 	$value =~ s/[\n|\s]//g; 	# remove spaces and line feeds
 	$key =~ m!^(?<type>.+)\s(?<key>.+)(:?\[(?<size>\d+)\]\[(?<len>\d+)\])$!;
 	$key = $+{key};
@@ -176,7 +177,7 @@ sub cparse
 	my @data = ();
 	while ($value =~ m!(:?{(?<value>[^{}]+)})+!g) {
 	    my @values = split(',', $+{value});
-	    for ($i = 0; $i < @values; $i++)
+	    for (my $i = 0; $i < @values; $i++)
 	    {
 		my $value = $values[$i];
 		if ($value =~ s!^0b(\d+)$!$1!) {
@@ -409,7 +410,7 @@ sub draw_editor {
     for (my $x = 0; $x < $cols; $x++) {
 	my $x_lab = ($dir) ? $x : $w - $x-1;
 	my $x_hex = '0x' . dec2hex($x_lab, 2);
-        $label = Gtk2::Label->new($x_hex);
+        my $label = Gtk2::Label->new($x_hex);
 	$label->modify_font($font);
         $label->set_angle(90);
         $label->set_alignment(0.5, 0);
@@ -418,7 +419,7 @@ sub draw_editor {
 
     for (my $y = 0; $y < $rows; $y++) {
 	for (my $x = 0; $x < $cols; $x++) {
-	    $togglebutton = Gtk2::ToggleButton->new(' ');
+	    my $togglebutton = Gtk2::ToggleButton->new(' ');
 	    $table->attach_defaults($togglebutton, $x, $x+1, $y+1, $y+2);
 	    $togglebutton->set_active(TRUE) if ($bitmatrix[$y][$x]);
 	    $togglebutton->set_label('*')  if ($bitmatrix[$y][$x]);
@@ -426,7 +427,7 @@ sub draw_editor {
 	}
 	my $y_lab = ($dir) ? $h - $y-1 : $y;
 	my $y_hex = '0x' . dec2hex($y_lab, 2);
-	$label = Gtk2::Label->new($y_hex);
+	my $label = Gtk2::Label->new($y_hex);
         $label->modify_font($font);
 	$table->attach_defaults($label, $cols, $cols+1, $y+1, $y+2);
     }
