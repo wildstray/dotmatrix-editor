@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+# bsd2c.pl - exports a C array for vertical scanline dotmatrix displays from BDF fonts
+# Derived / inspired from Markus Kuhn <http://www.cl.cam.ac.uk/~mgk25/> ucs2any.pl
+
 #use strict;
 #use Data::Dumper;
 

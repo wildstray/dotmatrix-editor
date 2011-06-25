@@ -1,9 +1,12 @@
 #!/usr/bin/perl
+
+# dotmatrix editor http://code.google.com/p/dotmatrix-editor/
+
 use strict;
 use warnings;
 use Glib qw/TRUE FALSE/;
 use Gtk2 '-init';
-use Data::Dumper;
+#use Data::Dumper;
 
 # global variables
 
