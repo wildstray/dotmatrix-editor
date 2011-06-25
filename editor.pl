@@ -563,7 +563,7 @@ sub draw_text
 
     $a_name = $def_name if !$a_name;
     $a_type = sprintf($def_type, $bytes * $byte_size) if !$a_type;
-    my $text = "$a_type $a_name [1][$len] {\n\t{ ";
+    my $text = "$a_type $a_name [1][$len] = {\n\t{ ";
     for (my $i = 0; $i < $len; $i++) {
         my $hex = "0x" . dec2hex($matrix[$i], $bytes * 2);
         $text .= "\n\t  " if !($i % 8) && $i;
