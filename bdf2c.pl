@@ -4,7 +4,7 @@
 # Derived / inspired from Markus Kuhn <http://www.cl.cam.ac.uk/~mgk25/> ucs2any.pl
 
 #use strict;
-#use Data::Dumper;
+use Data::Dumper;
 
 sub bin { return unpack("N", pack("B32", substr("0" x 32 . shift, -32))); }
 sub dec2hex { my $hex = unpack("H8", pack("N", shift)); my $zeros = "0" x (8 - int(shift)); $hex =~ s/$zeros//; return $hex; }
@@ -29,10 +29,6 @@ while (<FSOURCE>) {
     if (/^STARTFONT/) {
         $startfont = $_;
     } elsif (/^FONT\s+(.*-([^-]*-\S*))\s*$/) {
-        if ($2 ne "ISO10646-1") {
-    	die("FONT name in '$fsource' is '$1' and " .
-    	    "not '*-ISO10646-1'!\n");
-        };
         $font = $1;
     }
 }
@@ -78,7 +74,7 @@ for (my $i = 0x20; $i < 0x7f; $i++)
     @matrix = ();
     $char{$i} =~ m/BITMAP(.+?)ENDCHAR/gms;
     $bitmap = $1;
-    while ($bitmap =~ m/([0-9A-F]+?)\n/gms)
+    while ($bitmap =~ m/([0-9A-Fa-f]+?)\n/gms)
     {
 	$line = $1;
 	push @matrix, hex($line);
