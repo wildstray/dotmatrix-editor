@@ -1,0 +1,1 @@
+Perl/GTK based editor for LCD/LED fonts and bitmaps. Useful for rapid development (editing/writing) of C arrays to be used in firmwares of embedded platform using dot matrix LCD or LED displays.
